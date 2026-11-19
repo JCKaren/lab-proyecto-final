@@ -1,0 +1,473 @@
+org: karenjimenez1
+app: studyhub
+service: studyhub
+
+custom:
+  origenFrontend: ${param:origen, '*'}
+  correoAlarmas: ${param:correo, ''}
+  bucketMateriales: ${self:service}-materiales-${sls:stage}-${aws:accountId}
+
+provider:
+  name: aws
+  runtime: nodejs24.x
+  architecture: arm64        
+  region: us-east-1
+  memorySize: 256
+  timeout: 10
+  logRetentionInDays: 14    
+  tracing:
+    lambda: true             
+  environment:
+    CURSOS_TABLE: ${self:service}-cursos-${sls:stage}
+    MATERIALES_TABLE: ${self:service}-materiales-${sls:stage}
+    PQRS_TABLE: ${self:service}-pqrs-${sls:stage}
+    MATERIALES_BUCKET: ${self:custom.bucketMateriales}
+    URL_FIRMADA_TTL: '300'
+    ORIGEN_PERMITIDO: ${self:custom.origenFrontend}
+
+  httpApi:
+    cors:
+      allowedOrigins:
+        - ${self:custom.origenFrontend}
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      maxAge: 600
+    authorizers:
+      cognito:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl:
+          Fn::Join:
+            - ''
+            - - 'https://cognito-idp.${aws:region}.amazonaws.com/'
+              - Ref: UserPool
+        audience:
+          - Ref: UserPoolClient
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:Scan
+            - dynamodb:Query
+            - dynamodb:DeleteItem
+          Resource:
+            - Fn::GetAtt: [CursosTable, Arn]
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:DeleteItem
+          Resource:
+            - Fn::GetAtt: [MaterialesTable, Arn]
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:Scan
+            - dynamodb:UpdateItem
+          Resource:
+            - Fn::GetAtt: [PqrsTable, Arn]
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+          Resource:
+            - arn:aws:s3:::${self:custom.bucketMateriales}/materiales/*
+        - Effect: Allow
+          Action:
+            - cognito-idp:AdminAddUserToGroup
+          Resource:
+            - arn:aws:cognito-idp:${aws:region}:${aws:accountId}:userpool/*
+
+package:
+  patterns:
+    - '!tests/**'
+    - '!postman/**'
+    - '!README.md'
+
+functions:
+  listarCursos:
+    handler: src/cursos.listar
+    events:
+      - httpApi:
+          path: /cursos
+          method: get
+          authorizer:
+            name: cognito
+  obtenerCurso:
+    handler: src/cursos.obtener
+    events:
+      - httpApi:
+          path: /cursos/{cursoId}
+          method: get
+          authorizer:
+            name: cognito
+  crearCurso:
+    handler: src/cursos.crear
+    events:
+      - httpApi:
+          path: /cursos
+          method: post
+          authorizer:
+            name: cognito
+  eliminarCurso:
+    handler: src/cursos.eliminar
+    events:
+      - httpApi:
+          path: /cursos/{cursoId}
+          method: delete
+          authorizer:
+            name: cognito
+
+  listarMateriales:
+    handler: src/materiales.listar
+    events:
+      - httpApi:
+          path: /cursos/{cursoId}/materiales
+          method: get
+          authorizer:
+            name: cognito
+  obtenerMaterial:
+    handler: src/materiales.obtener
+    events:
+      - httpApi:
+          path: /cursos/{cursoId}/materiales/{materialId}
+          method: get
+          authorizer:
+            name: cognito
+  crearMaterial:
+    handler: src/materiales.crear
+    events:
+      - httpApi:
+          path: /cursos/{cursoId}/materiales
+          method: post
+          authorizer:
+            name: cognito
+  eliminarMaterial:
+    handler: src/materiales.eliminar
+    events:
+      - httpApi:
+          path: /cursos/{cursoId}/materiales/{materialId}
+          method: delete
+          authorizer:
+            name: cognito
+
+  listarPqrs:
+    handler: src/pqrs.listar
+    events:
+      - httpApi:
+          path: /pqrs
+          method: get
+          authorizer:
+            name: cognito
+  obtenerPqrs:
+    handler: src/pqrs.obtener
+    events:
+      - httpApi:
+          path: /pqrs/{pqrsId}
+          method: get
+          authorizer:
+            name: cognito
+  crearPqrs:
+    handler: src/pqrs.crear
+    events:
+      - httpApi:
+          path: /pqrs
+          method: post
+          authorizer:
+            name: cognito
+  responderPqrs:
+    handler: src/pqrs.responder
+    events:
+      - httpApi:
+          path: /pqrs/{pqrsId}/respuesta
+          method: put
+          authorizer:
+            name: cognito
+
+  postConfirmacion:
+    handler: src/cognito.postConfirmacion
+    timeout: 5
+
+resources:
+  Conditions:
+    TieneCorreoAlarmas:
+      Fn::Not:
+        - Fn::Equals: ['${self:custom.correoAlarmas}', '']
+
+  Resources:
+    CursosTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.CURSOS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: cursoId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: cursoId
+            KeyType: HASH
+
+    MaterialesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.MATERIALES_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: cursoId
+            AttributeType: S
+          - AttributeName: materialId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: cursoId
+            KeyType: HASH
+          - AttributeName: materialId
+            KeyType: RANGE
+
+    PqrsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.PQRS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: pqrsId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pqrsId
+            KeyType: HASH
+
+    MaterialesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketMateriales}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+        CorsConfiguration:       
+          CorsRules:
+            - AllowedOrigins:
+                - ${self:custom.origenFrontend}
+              AllowedMethods:
+                - GET
+                - PUT
+              AllowedHeaders:
+                - '*'
+              MaxAge: 3000
+
+    MaterialesBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket:
+          Ref: MaterialesBucket
+        PolicyDocument:
+          Statement:
+            - Sid: SoloHTTPS
+              Effect: Deny
+              Principal: '*'
+              Action: 's3:*'
+              Resource:
+                - arn:aws:s3:::${self:custom.bucketMateriales}
+                - arn:aws:s3:::${self:custom.bucketMateriales}/*
+              Condition:
+                Bool:
+                  aws:SecureTransport: 'false'
+
+    UserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-usuarios-${sls:stage}
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: true
+            RequireUppercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+        Schema:
+          - Name: name
+            AttributeDataType: String
+            Mutable: true
+            Required: true
+        AccountRecoverySetting:
+          RecoveryMechanisms:
+            - Name: verified_email
+              Priority: 1
+        LambdaConfig:
+          PostConfirmation:
+            Fn::GetAtt: [PostConfirmacionLambdaFunction, Arn]
+
+    UserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:service}-web-${sls:stage}
+        UserPoolId:
+          Ref: UserPool
+        GenerateSecret: false              
+        PreventUserExistenceErrors: ENABLED
+        ExplicitAuthFlows:
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_USER_PASSWORD_AUTH       
+          - ALLOW_REFRESH_TOKEN_AUTH
+
+    GrupoAdmin:
+      Type: AWS::Cognito::UserPoolGroup
+      Properties:
+        GroupName: admin
+        Description: Crea cursos, gestiona material y responde PQRS
+        Precedence: 0
+        UserPoolId:
+          Ref: UserPool
+
+    GrupoEstudiante:
+      Type: AWS::Cognito::UserPoolGroup
+      Properties:
+        GroupName: estudiante
+        Description: Ve material y crea PQRS
+        Precedence: 1
+        UserPoolId:
+          Ref: UserPool
+
+    PermisoCognitoPostConfirmacion:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: lambda:InvokeFunction
+        FunctionName:
+          Ref: PostConfirmacionLambdaFunction
+        Principal: cognito-idp.amazonaws.com
+        SourceArn:
+          Fn::GetAtt: [UserPool, Arn]
+
+    TopicoAlarmas:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-alarmas-${sls:stage}
+
+    SuscripcionCorreoAlarmas:
+      Type: AWS::SNS::Subscription
+      Condition: TieneCorreoAlarmas
+      Properties:
+        TopicArn:
+          Ref: TopicoAlarmas
+        Protocol: email
+        Endpoint: ${self:custom.correoAlarmas}
+
+    AlarmaErroresLambda:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-${sls:stage}-errores-lambda
+        AlarmDescription: Alguna Lambda falló en los últimos 5 minutos
+        Namespace: AWS/Lambda
+        MetricName: Errors
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 0
+        ComparisonOperator: GreaterThanThreshold
+        TreatMissingData: notBreaching
+        AlarmActions:
+          - Ref: TopicoAlarmas
+
+    AlarmaErrores5xxApi:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-${sls:stage}-api-5xx
+        AlarmDescription: La API devolvió errores 5xx en los últimos 5 minutos
+        Namespace: AWS/ApiGateway
+        MetricName: 5xx
+        Dimensions:
+          - Name: ApiId
+            Value:
+              Ref: HttpApi
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 0
+        ComparisonOperator: GreaterThanThreshold
+        TreatMissingData: notBreaching
+        AlarmActions:
+          - Ref: TopicoAlarmas
+
+    Dashboard:
+      Type: AWS::CloudWatch::Dashboard
+      Properties:
+        DashboardName: ${self:service}-${sls:stage}
+        DashboardBody:
+          Fn::Join:
+            - ''
+            - - |-
+                {"widgets":[
+                {"type":"metric","x":0,"y":0,"width":12,"height":6,"properties":{
+                  "title":"API Gateway - Peticiones y errores","region":"${aws:region}",
+                  "stat":"Sum","period":300,"view":"timeSeries","metrics":[
+                    ["AWS/ApiGateway","Count","ApiId","
+              - Ref: HttpApi
+              - |-
+                "],
+                    [".","4xx",".","."],
+                    [".","5xx",".","."]]}},
+                {"type":"metric","x":12,"y":0,"width":12,"height":6,"properties":{
+                  "title":"API Gateway - Latencia promedio (ms)","region":"${aws:region}",
+                  "stat":"Average","period":300,"view":"timeSeries","metrics":[
+                    ["AWS/ApiGateway","Latency","ApiId","
+              - Ref: HttpApi
+              - |-
+                "]]}},
+                {"type":"metric","x":0,"y":6,"width":8,"height":6,"properties":{
+                  "title":"Lambda - Invocations","region":"${aws:region}","period":300,"view":"timeSeries",
+                  "metrics":[[{"expression":"SEARCH('{AWS/Lambda,FunctionName} MetricName=\"Invocations\" ${self:service}-${sls:stage}', 'Sum', 300)","id":"e1"}]]}},
+                {"type":"metric","x":8,"y":6,"width":8,"height":6,"properties":{
+                  "title":"Lambda - Errors","region":"${aws:region}","period":300,"view":"timeSeries",
+                  "metrics":[[{"expression":"SEARCH('{AWS/Lambda,FunctionName} MetricName=\"Errors\" ${self:service}-${sls:stage}', 'Sum', 300)","id":"e1"}]]}},
+                {"type":"metric","x":16,"y":6,"width":8,"height":6,"properties":{
+                  "title":"Lambda - Duration promedio (ms)","region":"${aws:region}","period":300,"view":"timeSeries",
+                  "metrics":[[{"expression":"SEARCH('{AWS/Lambda,FunctionName} MetricName=\"Duration\" ${self:service}-${sls:stage}', 'Average', 300)","id":"e1"}]]}}
+                ]}
+
+  extensions:
+    HttpApiStage:
+      Properties:
+        DefaultRouteSettings:
+          ThrottlingBurstLimit: 50
+          ThrottlingRateLimit: 20
+
+  Outputs:
+    UserPoolId:
+      Description: Id del User Pool de Cognito (lo necesita el frontend)
+      Value:
+        Ref: UserPool
+    UserPoolClientId:
+      Description: Id del cliente web de Cognito (lo necesita el frontend)
+      Value:
+        Ref: UserPoolClient
+    BucketMateriales:
+      Description: Bucket privado con los archivos del material
+      Value: ${self:custom.bucketMateriales}
+    DashboardUrl:
+      Description: Dashboard de CloudWatch
+      Value: https://${aws:region}.console.aws.amazon.com/cloudwatch/home?region=${aws:region}#dashboards:name=${self:service}-${sls:stage}
+
+plugins:
+  - serverless-offline

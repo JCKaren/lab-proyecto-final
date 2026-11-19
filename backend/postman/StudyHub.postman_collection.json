@@ -1,0 +1,552 @@
+{
+  "info": {
+    "name": "StudyHub API",
+    "description": "Backend serverless de StudyHub. 1) Ajusta baseUrl, clientId y las credenciales. 2) Ejecuta un Login (guarda el token). 3) Prueba los endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://<api-id>.execute-api.us-east-1.amazonaws.com"
+    },
+    {
+      "key": "region",
+      "value": "us-east-1"
+    },
+    {
+      "key": "clientId",
+      "value": "<UserPoolClientId>"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@udea.edu.co"
+    },
+    {
+      "key": "adminPassword",
+      "value": "Admin12345"
+    },
+    {
+      "key": "estudianteEmail",
+      "value": "estudiante@udea.edu.co"
+    },
+    {
+      "key": "estudiantePassword",
+      "value": "Estudiante123"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "cursoId",
+      "value": "SIS-301"
+    },
+    {
+      "key": "materialId",
+      "value": ""
+    },
+    {
+      "key": "pqrsId",
+      "value": ""
+    },
+    {
+      "key": "urlSubida",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Autenticación",
+      "item": [
+        {
+          "name": "Login admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Amz-Target",
+                "value": "AWSCognitoIdentityProviderService.InitiateAuth"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-amz-json-1.1"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthFlow\": \"USER_PASSWORD_AUTH\",\n  \"ClientId\": \"{{clientId}}\",\n  \"AuthParameters\": {\n    \"USERNAME\": \"{{adminEmail}}\",\n    \"PASSWORD\": \"{{adminPassword}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "https://cognito-idp.{{region}}.amazonaws.com/",
+              "protocol": "https",
+              "host": [
+                "cognito-idp",
+                "{{region}}",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const t = pm.response.json().AuthenticationResult?.IdToken;",
+                  "pm.test('Token obtenido', () => pm.expect(t).to.be.a('string'));",
+                  "pm.collectionVariables.set('token', t);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login estudiante",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Amz-Target",
+                "value": "AWSCognitoIdentityProviderService.InitiateAuth"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-amz-json-1.1"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthFlow\": \"USER_PASSWORD_AUTH\",\n  \"ClientId\": \"{{clientId}}\",\n  \"AuthParameters\": {\n    \"USERNAME\": \"{{estudianteEmail}}\",\n    \"PASSWORD\": \"{{estudiantePassword}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "https://cognito-idp.{{region}}.amazonaws.com/",
+              "protocol": "https",
+              "host": [
+                "cognito-idp",
+                "{{region}}",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const t = pm.response.json().AuthenticationResult?.IdToken;",
+                  "pm.test('Token obtenido', () => pm.expect(t).to.be.a('string'));",
+                  "pm.collectionVariables.set('token', t);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Cursos",
+      "item": [
+        {
+          "name": "Listar cursos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cursos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear curso (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cursos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"SIS-301\",\n  \"nombre\": \"Sistemas Operativos\",\n  \"descripcion\": \"Procesos, memoria y sistemas de archivos\",\n  \"semestre\": \"2026-2\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) pm.collectionVariables.set('cursoId', pm.response.json().cursoId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener curso",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cursos/{{cursoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos",
+                "{{cursoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Eliminar curso (admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cursos/{{cursoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos",
+                "{{cursoId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Materiales",
+      "item": [
+        {
+          "name": "Crear material (admin) - devuelve URL de subida",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cursos/{{cursoId}}/materiales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos",
+                "{{cursoId}}",
+                "materiales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Parcial 1 resuelto\",\n  \"descripcion\": \"Solución del primer parcial\",\n  \"nombreArchivo\": \"parcial1.pdf\",\n  \"tipoContenido\": \"application/pdf\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) pm.collectionVariables.set('materialId', pm.response.json().material.materialId);",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('urlSubida', pm.response.json().urlSubida);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Subir archivo a S3 (URL prefirmada)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/pdf"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {}
+            },
+            "url": {
+              "raw": "{{urlSubida}}"
+            },
+            "description": "En Body > binary selecciona un PDF. No lleva Authorization: la firma va en la URL."
+          }
+        },
+        {
+          "name": "Listar materiales",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cursos/{{cursoId}}/materiales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos",
+                "{{cursoId}}",
+                "materiales"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener material (URL de descarga)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cursos/{{cursoId}}/materiales/{{materialId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos",
+                "{{cursoId}}",
+                "materiales",
+                "{{materialId}}"
+              ]
+            },
+            "description": "La respuesta incluye urlDescarga (válida 5 minutos)."
+          }
+        },
+        {
+          "name": "Eliminar material (admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cursos/{{cursoId}}/materiales/{{materialId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos",
+                "{{cursoId}}",
+                "materiales",
+                "{{materialId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. PQRS",
+      "item": [
+        {
+          "name": "Crear PQRS (estudiante)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pqrs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pqrs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"PETICION\",\n  \"asunto\": \"Material del parcial 2\",\n  \"descripcion\": \"¿Podrían subir el parcial 2 resuelto de Sistemas Operativos?\",\n  \"cursoId\": \"SIS-301\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) pm.collectionVariables.set('pqrsId', pm.response.json().pqrsId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar PQRS",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pqrs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pqrs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar PQRS pendientes (admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pqrs?estado=PENDIENTE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pqrs"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "PENDIENTE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener PQRS",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pqrs/{{pqrsId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pqrs",
+                "{{pqrsId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Responder PQRS (admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pqrs/{{pqrsId}}/respuesta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pqrs",
+                "{{pqrsId}}",
+                "respuesta"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"respuesta\": \"Ya está disponible en el curso SIS-301.\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

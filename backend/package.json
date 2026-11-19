@@ -1,0 +1,25 @@
+{
+  "name": "studyhub-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend serverless de StudyHub (Serverless Framework v4)",
+  "scripts": {
+    "test": "node --test",
+    "deploy": "serverless deploy",
+    "offline": "serverless offline",
+    "remove": "serverless remove"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.1141.0",
+    "@aws-sdk/client-dynamodb": "^3.1141.0",
+    "@aws-sdk/client-s3": "^3.1141.0",
+    "@aws-sdk/lib-dynamodb": "^3.1141.0",
+    "@aws-sdk/s3-request-presigner": "^3.1141.0"
+  },
+  "devDependencies": {
+    "serverless-offline": "^14.8.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
