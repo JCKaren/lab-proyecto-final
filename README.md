@@ -28,7 +28,7 @@ Plataforma web para compartir material de cursos y gestionar PQRS (peticiones, q
 
 **Despliegue**
 
-Infraestructura de red (VPC y EC2)
+# **Infraestructura de red (VPC y EC2)**
 
 **Desde la raiz del proyecto:**
 
