@@ -1,4 +1,4 @@
-**#Proyecto final de Cloud Computing (StudyHub)****
+**Proyecto final de Cloud Computing (StudyHub)****
 
 Plataforma web para compartir material de cursos y gestionar PQRS (peticiones, quejas, reclamos y sugerencias), construida sobre AWS con arquitectura serverless.
 
