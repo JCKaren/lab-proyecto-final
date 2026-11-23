@@ -47,7 +47,7 @@ Plataforma web para compartir material de cursos y gestionar PQRS (peticiones, q
 
 
 ```powershell
-cd backend
+
 npm install
 npm test
 npx serverless deploy --param="correo=tu@correo.com"
