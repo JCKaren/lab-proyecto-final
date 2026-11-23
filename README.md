@@ -4,11 +4,11 @@ Plataforma web para compartir material de cursos y gestionar PQRS (peticiones, q
 
 **Integrantes:** 
 
--Karen Michelle Jimenez Castro
+- Karen Michelle Jimenez Castro
 
--Jhomar Farid Arrieta Montes
+- Jhomar Farid Arrieta Montes
 
--Kelly Julieth Arango Henao
+- Kelly Julieth Arango Henao
 
 **Arquitectura**
 
