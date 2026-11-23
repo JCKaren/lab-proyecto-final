@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: StudyHub - VPC con una subred publica, Internet Gateway y tabla de rutas.
+
+Parameters:
+  NombreProyecto:
+    Type: String
+    Default: studyhub
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+  SubredPublicaCidr:
+    Type: String
+    Default: 10.0.1.0/24
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - { Key: Name, Value: !Sub '${NombreProyecto}-vpc' }
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - { Key: Name, Value: !Sub '${NombreProyecto}-igw' }
+
+  AdjuntarIgw:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  SubredPublica:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref SubredPublicaCidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - { Key: Name, Value: !Sub '${NombreProyecto}-subred-publica' }
+
+  TablaRutasPublica:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - { Key: Name, Value: !Sub '${NombreProyecto}-rt-publica' }
+
+  RutaInternet:
+    Type: AWS::EC2::Route
+    DependsOn: AdjuntarIgw
+    Properties:
+      RouteTableId: !Ref TablaRutasPublica
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  AsociacionRutas:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubredPublica
+      RouteTableId: !Ref TablaRutasPublica
+
+Outputs:
+  VpcId:
+    Value: !Ref Vpc
+    Export:
+      Name: !Sub '${NombreProyecto}-VpcId'
+  SubredPublicaId:
+    Value: !Ref SubredPublica
+    Export:
+      Name: !Sub '${NombreProyecto}-SubredPublicaId'

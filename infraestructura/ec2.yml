@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: StudyHub - Instancia EC2 de pruebas y su Security Group (SSH solo desde una IP).
+
+Parameters:
+  NombreProyecto:
+    Type: String
+    Default: studyhub
+  TipoInstancia:
+    Type: String
+    Default: t3.micro
+  IpPermitidaSsh:
+    Type: String
+    Default: 190.158.28.16/32
+    Description: Tu IP publica en formato CIDR (/32). Nunca uses 0.0.0.0/0.
+    AllowedPattern: '^(\d{1,3}\.){3}\d{1,3}/32$'
+    ConstraintDescription: Debe ser una sola IP con mascara /32.
+  NombreLlaveSsh:
+    Type: String
+    Default: ''
+    Description: Key pair existente para SSH (opcional).
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Conditions:
+  TieneLlave: !Not [!Equals [!Ref NombreLlaveSsh, '']]
+
+Resources:
+  SecurityGroupEc2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SSH solo desde la IP del administrador
+      VpcId:
+        Fn::ImportValue: !Sub '${NombreProyecto}-VpcId'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref IpPermitidaSsh
+          Description: SSH restringido a una sola IP
+      Tags:
+        - { Key: Name, Value: !Sub '${NombreProyecto}-sg-ec2' }
+
+  Instancia:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref TipoInstancia
+      ImageId: !Ref AmiId
+      SubnetId:
+        Fn::ImportValue: !Sub '${NombreProyecto}-SubredPublicaId'
+      SecurityGroupIds: [!Ref SecurityGroupEc2]
+      KeyName: !If [TieneLlave, !Ref NombreLlaveSsh, !Ref 'AWS::NoValue']
+      Monitoring: false
+      MetadataOptions:
+        HttpTokens: required      # IMDSv2 obligatorio
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp3
+            Encrypted: true
+      Tags:
+        - { Key: Name, Value: !Sub '${NombreProyecto}-ec2' }
+
+Outputs:
+  InstanciaId:
+    Value: !Ref Instancia
+  SecurityGroupId:
+    Value: !Ref SecurityGroupEc2
+  IpPublicaInstancia:
+    Value: !GetAtt Instancia.PublicIp
