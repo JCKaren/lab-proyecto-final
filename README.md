@@ -3,8 +3,11 @@
 Plataforma web para compartir material de cursos y gestionar PQRS (peticiones, quejas, reclamos y sugerencias), construida sobre AWS con arquitectura serverless.
 
 **Integrantes:** 
+
 -Karen Michelle Jimenez Castro
+
 -Jhomar Farid Arrieta Montes
+
 -Kelly Julieth Arango Henao
 
 **Arquitectura**
