@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  StudyHub - Bucket S3 que hospeda el frontend estático como sitio web.
+  Solo se permite lectura pública de objetos (s3:GetObject); nadie anónimo puede listar,
+  escribir ni borrar.
+
+Parameters:
+  NombreBucket:
+    Type: String
+    Description: Nombre único global del bucket (minúsculas, números y guiones)
+    AllowedPattern: "^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$"
+    Default: studyhub-frontend-2026-udea
+
+Resources:
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref NombreBucket
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      # Se desbloquea solo la política pública (para el GetObject de abajo); las ACL siguen bloqueadas.
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: proyecto
+          Value: studyhub
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: LecturaPublicaDelSitio
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+
+Outputs:
+  BucketName:
+    Description: Bucket del frontend
+    Value: !Ref FrontendBucket
+  WebsiteURL:
+    Description: URL pública del frontend (usar como parámetro "origen" del backend, sin "/" final)
+    Value: !GetAtt FrontendBucket.WebsiteURL
